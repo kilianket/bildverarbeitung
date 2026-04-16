@@ -54,12 +54,14 @@ BEGIN
     END
     POPUP "Praktikum"
     BEGIN
-        MENUITEM "Helligkeit",                  	ID_PRAKTIKUM_HELLIGKEIT
-        MENUITEM "Lineare Transformation (Auto)", 	ID_PRAKTIKUM_LINEARETRANSFORMATION
-        MENUITEM "Lineare Transformation (Manuell)", 	ID_PRAKTIKUM_LINEARETRANSFORMATION40024
- 	MENUITEM "Gauss", 				ID_FILTER_GAUSS
-	MENUITEM "Gauss optimiert", 			ID_FILTER_GAUSS_OPTIMIERT
-	MENUITEM "Gauss optimiert Reichweite", 		ID_FILTER_GAUSS_OPTIMIERT_REICHWEITE
+        MENUITEM "Helligkeit",                  		ID_PRAKTIKUM_HELLIGKEIT
+        MENUITEM "Lineare Transformation (Auto)", 		ID_PRAKTIKUM_LINEARETRANSFORMATION
+        MENUITEM "Lineare Transformation (Manuell)", 		ID_PRAKTIKUM_LINEARETRANSFORMATION40024
+        MENUITEM "Gauss",                       		ID_FILTER_GAUSS
+        MENUITEM "Gauss optimiert",             		ID_FILTER_GAUSS_OPTIMIERT
+        MENUITEM "Gauss optimiert Reichweite", 			ID_FILTER_GAUSS_OPTIMIERT_REICHWEITE
+        MENUITEM "Bicubic",                    			ID_INTERPOLATION_BICUBIC
+        MENUITEM "Bilinear",                   			ID_INTERPOLATION_BILINEAR
     END
 END
 

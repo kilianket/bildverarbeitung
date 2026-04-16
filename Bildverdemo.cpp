@@ -33,6 +33,10 @@ BOOL LineareTransformation(HWND hwnd, BILD* pQuelle, BILD* pZiel, BOOL manuell);
 BOOL GaussFilter(HWND hwnd, BILD* pQuelle, BILD* pZiel);
 BOOL GaussOptimiert(HWND hwnd, BILD* pQuelle, BILD* pZiel);
 BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius);
+
+Punkt Bilinear(BILD* src, double x, double y);
+Punkt Bicubic(BILD* src, double x, double y);
+double cubicWeight(double t);
 //-------------------------------------------------------------------------
 //                    WinMain   Funktion
 //-------------------------------------------------------------------------
@@ -411,6 +415,59 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT wMsg,
 				Bild_3 = Bild_2; Bild_2 = Bild_1; Bild_1 = Bild_3;
 			}
 			break;
+
+		case ID_INTERPOLATION_BICUBIC:
+			if (Bild_1.Daten != NULL)
+			{
+				BildInit(&Bild_2, Bild_1.Breite, Bild_1.Hoehe, 24, 0, 1000);
+
+				double scaleX = 2.0;
+				double scaleY = 2.0;
+
+				BildInit(&Bild_2,
+					Bild_1.Breite* scaleX,
+					Bild_1.Hoehe* scaleY,
+					24, 0, 1000);
+
+				for (int y = 0; y < Bild_2.Hoehe; y++)
+				{
+					for (int x = 0; x < Bild_2.Breite; x++)
+					{
+						double srcX = x / scaleX;
+						double srcY = y / scaleY;
+
+						Punkt P = Bicubic(&Bild_1, srcX, srcY);
+						PunktSetzen(&Bild_2, x, y, &P);
+					}
+				}
+
+				ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+			}
+			break;
+
+		case ID_INTERPOLATION_BILINEAR:
+		{
+			BildInit(&Bild_2,
+				Bild_1.Breite * 2,
+				Bild_1.Hoehe * 2,
+				24, 0, 1000);
+
+			double scaleX = (double)Bild_2.Breite / Bild_1.Breite;
+			double scaleY = (double)Bild_2.Hoehe / Bild_1.Hoehe;
+
+			for (int y = 0; y < Bild_2.Hoehe; y++)
+			{
+				for (int x = 0; x < Bild_2.Breite; x++)
+				{
+					double srcX = x / scaleX;
+					double srcY = y / scaleY;
+
+					Punkt P = Bilinear(&Bild_1, srcX, srcY);
+					PunktSetzen(&Bild_2, x, y, &P);
+				}
+			}
+		}
+		break;
 
 		} // Ende von: Windows-Command (Menü, switch wParam)
 
@@ -1012,4 +1069,84 @@ BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius)
 	Melde(msg, 0x00FF00, FALSE);
 
 	return TRUE;
+}
+
+Punkt Bilinear(BILD* src, double x, double y)
+{
+	int x0 = (int)x;
+	int y0 = (int)y;
+	int x1 = x0 + 1;
+	int y1 = y0 + 1;
+
+	double dx = x - x0;
+	double dy = y - y0;
+
+	Punkt p00 = PunktHolenInt(src, x0, y0);
+	Punkt p10 = PunktHolenInt(src, x1, y0);
+	Punkt p01 = PunktHolenInt(src, x0, y1);
+	Punkt p11 = PunktHolenInt(src, x1, y1);
+
+	Punkt P;
+
+	P.R = (1 - dx) * (1 - dy) * p00.R + dx * (1 - dy) * p10.R + (1 - dx) * dy * p01.R + dx * dy * p11.R;
+	P.G = (1 - dx) * (1 - dy) * p00.G + dx * (1 - dy) * p10.G + (1 - dx) * dy * p01.G + dx * dy * p11.G;
+	P.B = (1 - dx) * (1 - dy) * p00.B + dx * (1 - dy) * p10.B + (1 - dx) * dy * p01.B + dx * dy * p11.B;
+
+	return P;
+}
+
+Punkt Bicubic(BILD* src, double x, double y)
+{
+	int ix = (int)x;
+	int iy = (int)y;
+
+	double dx = x - ix;
+	double dy = y - iy;
+
+	Punkt result;
+	result.R = result.G = result.B = 0.0;
+
+	// Sicherheitscheck (Randvermeidung)
+	if (ix < 1 || iy < 1 || ix >= src->Breite - 2 || iy >= src->Hoehe - 2)
+	{
+		return PunktHolenInt(src, ix, iy);
+	}
+
+	// 4x4 Nachbarschaft
+	for (int m = -1; m <= 2; m++)
+	{
+		for (int n = -1; n <= 2; n++)
+		{
+			Punkt p = PunktHolenInt(src, ix + n, iy + m);
+
+			double wx = cubicWeight(n - dx);
+			double wy = cubicWeight(m - dy);
+			double w = wx * wy;
+
+			result.R += p.R * w;
+			result.G += p.G * w;
+			result.B += p.B * w;
+		}
+	}
+
+	// Clamp (wichtig!)
+	result.R = max(0.0, min(255.0, result.R));
+	result.G = max(0.0, min(255.0, result.G));
+	result.B = max(0.0, min(255.0, result.B));
+
+	return result;
+}
+
+double cubicWeight(double t)
+{
+	t = fabs(t);
+
+	const double a = -0.5; // Catmull-Rom
+
+	if (t <= 1.0)
+		return (a + 2) * t * t * t - (a + 3) * t * t + 1;
+	else if (t < 2.0)
+		return a * t * t * t - 5 * a * t * t + 8 * a * t - 4 * a;
+	else
+		return 0.0;
 }

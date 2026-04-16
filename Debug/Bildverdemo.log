@@ -1,10 +1,10 @@
 ﻿cl : befehlszeile warning D9035: Die Option "Gm" ist veraltet und wird in einer der nächsten Versionen entfernt.
   Bildverdemo.cpp
-U:\Bildverdemo_2019\Bildverdemo.cpp(944,9): warning C4566: Das durch den universellen Zeichennamen "\u2714" dargestellte Zeichen kann in der aktuellen Codepage (1252) nicht dargestellt werden.
-U:\Bildverdemo_2019\Bildverdemo.cpp(946,9): warning C4566: Das durch den universellen Zeichennamen "\u2716" dargestellte Zeichen kann in der aktuellen Codepage (1252) nicht dargestellt werden.
-U:\Bildverdemo_2019\Bildverdemo.cpp(822,10): warning C4101: "y": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(822,7): warning C4101: "x": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(955,13): warning C4101: "k": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(956,8): warning C4101: "P": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(955,16): warning C4101: "j": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(429,18): warning C4244: "Argument": Konvertierung von "double" in "long", möglicher Datenverlust
+U:\Bildverdemo_2019\Bildverdemo.cpp(428,19): warning C4244: "Argument": Konvertierung von "double" in "long", möglicher Datenverlust
+U:\Bildverdemo_2019\Bildverdemo.cpp(879,10): warning C4101: "y": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(879,7): warning C4101: "x": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(1012,13): warning C4101: "k": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(1013,8): warning C4101: "P": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(1012,16): warning C4101: "j": Unreferenzierte lokale Variable
   Bildverdemo.vcxproj -> U:\Bildverdemo_2019\Debug\Bildverh.exe
