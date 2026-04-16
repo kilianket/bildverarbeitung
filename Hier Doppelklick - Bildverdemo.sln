@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.32929.386
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Bildverdemo", "Bildverdemo.vcxproj", "{9AFC576B-BD83-44EE-AA9B-5894B054A1F5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9AFC576B-BD83-44EE-AA9B-5894B054A1F5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9AFC576B-BD83-44EE-AA9B-5894B054A1F5}.Debug|Win32.Build.0 = Debug|Win32
+		{9AFC576B-BD83-44EE-AA9B-5894B054A1F5}.Release|Win32.ActiveCfg = Debug|Win32
+		{9AFC576B-BD83-44EE-AA9B-5894B054A1F5}.Release|Win32.Build.0 = Debug|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9CEC46D5-59D8-4C61-A26C-99B24997B462}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,149 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Deutsch (Deutschland) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_DEU)
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MENU1 MENU
+BEGIN
+    POPUP "&Datei"
+    BEGIN
+        MENUITEM "Ö&ffnen ...",                 IDM_FILE_OPEN
+        MENUITEM "&Speichern ...",              IDM_FILE_SAVE
+        MENUITEM SEPARATOR
+        MENUITEM "Be&enden",                    IDM_EXIT
+    END
+    POPUP "&Bearbeiten"
+    BEGIN
+        MENUITEM "&Rückgängig",                 IDM_EDIT_UNDO
+        MENUITEM "&Einfügen",                   IDM_EDIT_INSERT
+        MENUITEM SEPARATOR
+        POPUP "&Farbe"
+        BEGIN
+            MENUITEM "&Invertieren",                IDM_EDIT_INVERT
+            MENUITEM "Invertieren &100x100",        IDM_EDIT_INVERT_100
+        END
+        MENUITEM "&Größe ...",                  IDM_EDIT_GROESSE
+        MENUITEM "G&amma",                      IDM_GAMMA
+        MENUITEM "Histogramm",                  ID_BEARBEITEN_HISTOGRAMM
+    END
+    POPUP "&Hilfe"
+    BEGIN
+        MENUITEM "&Info",                       IDM_ABOUT
+        MENUITEM "&Meldungen an/aus",           IDM_MELD_ONOFF
+    END
+    POPUP "Praktikum"
+    BEGIN
+        MENUITEM "Helligkeit",                  	ID_PRAKTIKUM_HELLIGKEIT
+        MENUITEM "Lineare Transformation (Auto)", 	ID_PRAKTIKUM_LINEARETRANSFORMATION
+        MENUITEM "Lineare Transformation (Manuell)", 	ID_PRAKTIKUM_LINEARETRANSFORMATION40024
+ 	MENUITEM "Gauss", 				ID_FILTER_GAUSS
+	MENUITEM "Gauss optimiert", 			ID_FILTER_GAUSS_OPTIMIERT
+	MENUITEM "Gauss optimiert Reichweite", 		ID_FILTER_GAUSS_OPTIMIERT_REICHWEITE
+    END
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ICON1               ICON                    "ICON1.ICO"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG 0, 0, 186, 108
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTERMOUSE | WS_POPUP
+FONT 10, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,73,70,50,14
+    CTEXT           "Bildverh.exe\n(c) 2003\nHerbert Litschke\n\nhli@denali.de",IDC_STATIC,56,15,83,51,SS_SUNKEN | NOT WS_GROUP
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 101
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Deutsch (Deutschland) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
