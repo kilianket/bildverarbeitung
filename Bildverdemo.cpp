@@ -6,6 +6,13 @@
 
 #include "hli20.h"  // enthält weitere Includes
 #include <cmath>    // für exp, M_PI
+#include <algorithm>
+using std::min;
+using std::max;
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 // -------- Globale Variablen --------------
 
@@ -20,6 +27,8 @@ char     Eingabezeilen[20][50];   // für Dialogboxen   (Anzahl 20, Länge 50)
 
 BILD bild4;
 BILD bild5;
+int g_clickX = 0;
+int g_clickY = 0;
 
 // -------- Funktionsdeklarationen ---------
 
@@ -35,8 +44,9 @@ BOOL GaussOptimiert(HWND hwnd, BILD* pQuelle, BILD* pZiel);
 BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius);
 
 Punkt Bilinear(BILD* src, double x, double y);
-Punkt Bicubic(BILD* src, double x, double y);
+BOOL ZoomBicubic(HWND hwnd, BILD* src, BILD* dst, int cx, int cy);
 double cubicWeight(double t);
+Punkt Bicubic(BILD* src, double x, double y);
 //-------------------------------------------------------------------------
 //                    WinMain   Funktion
 //-------------------------------------------------------------------------
@@ -69,7 +79,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	}
 
-	//hInst = hInstance;
+	hInst = hInstance;
 
 	// --- Fenster erzeugen - erstmal irgendwelche Abmessungen ---
 
@@ -145,8 +155,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT wMsg,
 		break;
 
 	case WM_LBUTTONDOWN:    // linke Maustaste
+	{
+		// 🔥 Klickposition speichern (für Zoom!)
+		g_clickX = LOWORD(lParam);
+		g_clickY = HIWORD(lParam);
+
+		// bestehende Funktion weiter aufrufen
 		LinkeTaste(hwnd, &Bild_1, lParam, MPunkt);
-		break;
+	}
+	break;
 
 	case WM_PAINT:			 // neuzeichnen
 		if (Bild_1.Daten != NULL)
@@ -417,55 +434,73 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT wMsg,
 			break;
 
 		case ID_INTERPOLATION_BICUBIC:
-			if (Bild_1.Daten != NULL)
+		{
+			if (Bild_1.Daten == NULL) break;
+
+			if (g_clickX == 0 && g_clickY == 0)
 			{
-				BildInit(&Bild_2, Bild_1.Breite, Bild_1.Hoehe, 24, 0, 1000);
-
-				double scaleX = 2.0;
-				double scaleY = 2.0;
-
-				BildInit(&Bild_2,
-					Bild_1.Breite* scaleX,
-					Bild_1.Hoehe* scaleY,
-					24, 0, 1000);
-
-				for (int y = 0; y < Bild_2.Hoehe; y++)
-				{
-					for (int x = 0; x < Bild_2.Breite; x++)
-					{
-						double srcX = x / scaleX;
-						double srcY = y / scaleY;
-
-						Punkt P = Bicubic(&Bild_1, srcX, srcY);
-						PunktSetzen(&Bild_2, x, y, &P);
-					}
-				}
-
-				ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+				Melde("Bitte zuerst ins Bild klicken!", 0x00FFFF, FALSE);
+				break;
 			}
-			break;
+
+			BildInit(&Bild_2, Bild_1.Breite, Bild_1.Hoehe, 24, 0, 1000);
+
+			ZoomBicubic(hwnd, &Bild_1, &Bild_2, g_clickX, g_clickY);
+
+			ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+		}
+		break;
 
 		case ID_INTERPOLATION_BILINEAR:
 		{
+			if (Bild_1.Daten == NULL) break;
+
 			BildInit(&Bild_2,
-				Bild_1.Breite * 2,
-				Bild_1.Hoehe * 2,
+				Bild_1.Breite,
+				Bild_1.Hoehe,
 				24, 0, 1000);
 
-			double scaleX = (double)Bild_2.Breite / Bild_1.Breite;
-			double scaleY = (double)Bild_2.Hoehe / Bild_1.Hoehe;
+			double angle = M_PI / 4.0; // 45 Grad
+			double cosA = cos(angle);
+			double sinA = sin(angle);
+
+			double cx = Bild_1.Breite / 2.0;
+			double cy = Bild_1.Hoehe / 2.0;
 
 			for (int y = 0; y < Bild_2.Hoehe; y++)
 			{
 				for (int x = 0; x < Bild_2.Breite; x++)
 				{
-					double srcX = x / scaleX;
-					double srcY = y / scaleY;
+					// Mittelpunktverschiebung
+					double dx = x - cx;
+					double dy = y - cy;
 
-					Punkt P = Bilinear(&Bild_1, srcX, srcY);
+					// 🔥 inverse Rotation (Ziel -> Quelle)
+					double srcX = cosA * dx + sinA * dy + cx;
+					double srcY = -sinA * dx + cosA * dy + cy;
+
+					Punkt P;
+
+					if (srcX < 0 || srcY < 0 ||
+						srcX >= Bild_1.Breite - 1 ||
+						srcY >= Bild_1.Hoehe - 1)
+					{
+						P.R = P.G = P.B = 0; // Hintergrund schwarz
+					}
+					else
+					{
+						P = Bilinear(&Bild_1, srcX, srcY);
+					}
+
 					PunktSetzen(&Bild_2, x, y, &P);
 				}
 			}
+
+			ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+
+			Bild_3 = Bild_2;
+			Bild_2 = Bild_1;
+			Bild_1 = Bild_3;
 		}
 		break;
 
@@ -489,6 +524,7 @@ LRESULT CALLBACK FrameCallbackProc(HWND hcwnd, LPVIDEOHDR lpVHdr) // kriegt capt
 	if (!hcwnd)
 		return FALSE;
 
+	TCHAR Zeile[100];
 	wsprintf(Zeile, TEXT("Preview frame# %ld "), BildZaehler++);
 
 	SetWindowText(hcwnd, (LPTSTR)Zeile);
@@ -1075,6 +1111,11 @@ Punkt Bilinear(BILD* src, double x, double y)
 {
 	int x0 = (int)x;
 	int y0 = (int)y;
+
+	// Sicherstellen, dass wir nicht über den Rand hinauslesen
+	x0 = max(0, min(x0, src->Breite - 2));
+	y0 = max(0, min(y0, src->Hoehe - 2));
+
 	int x1 = x0 + 1;
 	int y1 = y0 + 1;
 
@@ -1093,6 +1134,55 @@ Punkt Bilinear(BILD* src, double x, double y)
 	P.B = (1 - dx) * (1 - dy) * p00.B + dx * (1 - dy) * p10.B + (1 - dx) * dy * p01.B + dx * dy * p11.B;
 
 	return P;
+}
+
+BOOL ZoomBicubic(HWND hwnd, BILD* src, BILD* dst, int cx, int cy)
+{
+	double zoom = 2.0;
+
+	int w = dst->Breite;
+	int h = dst->Hoehe;
+
+	for (int y = 0; y < h; y++)
+	{
+		for (int x = 0; x < w; x++)
+		{
+			// Rücktransformation (Ziel -> Quelle)
+			double srcX = cx + (x - w / 2.0) / zoom;
+			double srcY = cy + (y - h / 2.0) / zoom;
+
+			Punkt p;
+
+			// Randbehandlung
+			if (srcX < 1 || srcY < 1 || srcX >= src->Breite - 2 || srcY >= src->Hoehe - 2)
+			{
+				p = PunktHolenInt(src, (int)srcX, (int)srcY);
+			}
+			else
+			{
+				p = Bicubic(src, srcX, srcY);
+			}
+
+			PunktSetzen(dst, x, y, &p);
+		}
+	}
+
+	InvalidateRect(hwnd, NULL, FALSE);
+	return TRUE;
+}
+
+double cubicWeight(double t)
+{
+	t = fabs(t);
+
+	const double a = -0.5; // Catmull-Rom
+
+	if (t <= 1.0)
+		return (a + 2) * t * t * t - (a + 3) * t * t + 1;
+	else if (t < 2.0)
+		return a * t * t * t - 5 * a * t * t + 8 * a * t - 4 * a;
+	else
+		return 0.0;
 }
 
 Punkt Bicubic(BILD* src, double x, double y)
@@ -1137,16 +1227,4 @@ Punkt Bicubic(BILD* src, double x, double y)
 	return result;
 }
 
-double cubicWeight(double t)
-{
-	t = fabs(t);
 
-	const double a = -0.5; // Catmull-Rom
-
-	if (t <= 1.0)
-		return (a + 2) * t * t * t - (a + 3) * t * t + 1;
-	else if (t < 2.0)
-		return a * t * t * t - 5 * a * t * t + 8 * a * t - 4 * a;
-	else
-		return 0.0;
-}
