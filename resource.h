@@ -35,8 +35,10 @@
 #define ID_FILTER_GAUSS_OPTIMIERT_REICHWEITE 40027
 #define ID_INTERPOLATION_BICUBIC 40028
 #define ID_INTERPOLATION_BILINEAR 40029
-// Next default values for new objects
-// 
+
+// --- Neue ID für die HSV-Matrix (Aufgabe 5) ---
+#define ID_PRAKTIKUM_HSV_MATRIX         40030
+
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        104
@@ -45,3 +47,9 @@
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
+
+//Vergößern auf andere Art (linear interpolation)
+
+
+
+

@@ -1,8 +1,8 @@
 ﻿cl : befehlszeile warning D9035: Die Option "Gm" ist veraltet und wird in einer der nächsten Versionen entfernt.
   Bildverdemo.cpp
-U:\Bildverdemo_2019\Bildverdemo.cpp(915,10): warning C4101: "y": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(915,7): warning C4101: "x": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(1048,13): warning C4101: "k": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(1049,8): warning C4101: "P": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(1048,16): warning C4101: "j": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(949,10): warning C4101: "y": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(949,7): warning C4101: "x": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(1082,13): warning C4101: "k": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(1083,8): warning C4101: "P": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(1082,16): warning C4101: "j": Unreferenzierte lokale Variable
   Bildverdemo.vcxproj -> U:\Bildverdemo_2019\Debug\Bildverh.exe

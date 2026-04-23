@@ -60,8 +60,9 @@ BEGIN
         MENUITEM "Gauss",                       		ID_FILTER_GAUSS
         MENUITEM "Gauss optimiert",             		ID_FILTER_GAUSS_OPTIMIERT
         MENUITEM "Gauss optimiert Reichweite", 			ID_FILTER_GAUSS_OPTIMIERT_REICHWEITE
-        MENUITEM "Bicubic",                    			ID_INTERPOLATION_BICUBIC
+        MENUITEM "Bicubic Zoom",                    		ID_INTERPOLATION_BICUBIC
         MENUITEM "Bilinear",                   			ID_INTERPOLATION_BILINEAR
+	MENUITEM "HSV",  					ID_PRAKTIKUM_HSV_MATRIX
     END
 END
 

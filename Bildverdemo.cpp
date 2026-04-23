@@ -43,10 +43,14 @@ BOOL GaussFilter(HWND hwnd, BILD* pQuelle, BILD* pZiel);
 BOOL GaussOptimiert(HWND hwnd, BILD* pQuelle, BILD* pZiel);
 BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius);
 
-Punkt Bilinear(BILD* src, double x, double y);
-BOOL ZoomBicubic(HWND hwnd, BILD* src, BILD* dst, int cx, int cy);
-double cubicWeight(double t);
+// -------- Funktionsdeklarationen ---------
+// ... (andere Deklarationen)
+double cubicWeight(double x);
 Punkt Bicubic(BILD* src, double x, double y);
+Punkt bilinear(BILD* src, double x, double y); // FIX: Semikolon ergänzt
+
+void RGBtoHSV(Punkt rgb, double& h, double& s, double& v);
+BOOL ErzeugeHSVMatrix(HWND hwnd, BILD* pQuelle, BILD* pZiel);
 //-------------------------------------------------------------------------
 //                    WinMain   Funktion
 //-------------------------------------------------------------------------
@@ -433,76 +437,104 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT wMsg,
 			}
 			break;
 
-		case ID_INTERPOLATION_BICUBIC:
-		{
+		
+
+		case ID_PRAKTIKUM_HSV_MATRIX:
+		{  // <--- Diese Klammer muss da sein
+			// 1. Sicherheitscheck: Gibt es überhaupt ein Bild?
 			if (Bild_1.Daten == NULL) break;
 
-			if (g_clickX == 0 && g_clickY == 0)
+			// 2. Funktion aufrufen (diese erledigt BildInit und die HSV-Berechnung)
+			if (ErzeugeHSVMatrix(hwnd, &Bild_1, &Bild_2))
 			{
-				Melde("Bitte zuerst ins Bild klicken!", 0x00FFFF, FALSE);
-				break;
+				// 3. Das Ergebnis (die 2x2 Matrix) im Fenster anzeigen
+				ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+
+				// 4. Die typische Bild-Rotation für die Undo-Funktion
+				Bild_3 = Bild_2;
+				Bild_2 = Bild_1;
+				Bild_1 = Bild_3;
 			}
-
-			BildInit(&Bild_2, Bild_1.Breite, Bild_1.Hoehe, 24, 0, 1000);
-
-			ZoomBicubic(hwnd, &Bild_1, &Bild_2, g_clickX, g_clickY);
-
-			ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
-		}
+		} // <--- Und diese auch vor dem break
 		break;
 
-		case ID_INTERPOLATION_BILINEAR:
-		{
-			if (Bild_1.Daten == NULL) break;
-
-			BildInit(&Bild_2,
-				Bild_1.Breite,
-				Bild_1.Hoehe,
-				24, 0, 1000);
-
-			double angle = M_PI / 4.0; // 45 Grad
-			double cosA = cos(angle);
-			double sinA = sin(angle);
-
-			double cx = Bild_1.Breite / 2.0;
-			double cy = Bild_1.Hoehe / 2.0;
-
-			for (int y = 0; y < Bild_2.Hoehe; y++)
+		case ID_INTERPOLATION_BICUBIC:
+			if (Bild_1.Daten != NULL)
 			{
-				for (int x = 0; x < Bild_2.Breite; x++)
+				// Sicherheitscheck: Wurde überhaupt schon ins Bild geklickt?
+				if (g_clickX <= 0 || g_clickY <= 0) {
+					Melde("Bitte zuerst mit Linksklick einen Punkt im Bild wählen!", 0x0000FF, FALSE);
+					break;
+				}
+
+				int zoomSize = 512;
+				double scale = 1.0 / 64.0; // 64-fache Vergrößerung laut Aufgabe
+
+				if (BildInit(&Bild_2, zoomSize, zoomSize, 24, 0, 1000))
 				{
-					// Mittelpunktverschiebung
-					double dx = x - cx;
-					double dy = y - cy;
+					double startX = (double)g_clickX;
+					double startY = (double)g_clickY;
 
-					// 🔥 inverse Rotation (Ziel -> Quelle)
-					double srcX = cosA * dx + sinA * dy + cx;
-					double srcY = -sinA * dx + cosA * dy + cy;
-
-					Punkt P;
-
-					if (srcX < 0 || srcY < 0 ||
-						srcX >= Bild_1.Breite - 1 ||
-						srcY >= Bild_1.Hoehe - 1)
+					for (int y = 0; y < Bild_2.Hoehe; y++)
 					{
-						P.R = P.G = P.B = 0; // Hintergrund schwarz
-					}
-					else
-					{
-						P = Bilinear(&Bild_1, srcX, srcY);
+						for (int x = 0; x < Bild_2.Breite; x++)
+						{
+							// Quellkoordinaten berechnen
+							double src_x = startX + (double)(x - zoomSize / 2) * scale;
+							double src_y = startY + (double)(y - zoomSize / 2) * scale;
+
+							// Bikubische Interpolation
+							Punkt p = Bicubic(&Bild_1, src_x, src_y);
+							PunktSetzen(&Bild_2, x, y, &p);
+						}
 					}
 
-					PunktSetzen(&Bild_2, x, y, &P);
+					// --- WICHTIG: ERGEBNIS ANZEIGEN ---
+					ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+
+					// Undo-Logik: Aktuelles Bild in Bild_2 sichern, altes in Bild_1 lassen oder rotieren
+					// Damit das Programm stabil bleibt, empfehle ich hier:
+					BildCopy(&Bild_2, &Bild_3); // Backup in Bild_3
+					Melde("Bikubische Vergrößerung (64x) fertig!", 0x00FF00, FALSE);
 				}
 			}
+			break;
 
-			ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+		case ID_INTERPOLATION_BILINEAR:
+			if (Bild_1.Daten != NULL)
+			{
+				int zoomSize = 512;        // Größe des Ausgabefensters
+				double scale = 1.0 / 64.0; // 64-fache Vergrößerung laut Aufgabe 
 
-			Bild_3 = Bild_2;
-			Bild_2 = Bild_1;
-			Bild_1 = Bild_3;
-		}
-		break;
+				if (BildInit(&Bild_2, zoomSize, zoomSize, 24, 0, 1000))
+				{
+					// g_clickX/Y wurden in WM_LBUTTONDOWN gespeichert
+					double startX = (double)g_clickX;
+					double startY = (double)g_clickY;
+
+					for (int y = 0; y < Bild_2.Hoehe; y++)
+					{
+						for (int x = 0; x < Bild_2.Breite; x++)
+						{
+							// Berechne Quellkoordinate (zentriert um Klickpunkt)
+							double src_x = startX + (double)(x - zoomSize / 2) * scale;
+							double src_y = startY + (double)(y - zoomSize / 2) * scale;
+
+							// Bilineare Funktion aufrufen
+							Punkt p = bilinear(&Bild_1, src_x, src_y);
+
+							PunktSetzen(&Bild_2, x, y, &p);
+						}
+					}
+
+					ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+
+					// Undo-Logik
+					Bild_3 = Bild_2; Bild_2 = Bild_1; Bild_1 = Bild_3;
+					Melde("Bilineare Vergrößerung (64x) fertig", 0x00FF00, FALSE);
+				}
+			}
+			break;
 
 		} // Ende von: Windows-Command (Menü, switch wParam)
 
@@ -556,7 +588,6 @@ BOOL BlueBox(BILD* pQuelle, BILD* pZiel)
 	long  x, y;
 	Punkt P;
 
-
 	// ------  neues Bild initialisieren !!  ------
 
 	BildInit(pZiel, pQuelle->Breite, pQuelle->Hoehe, 24, 0, 1000);   // bitte nur 24-bit-Bilder erzeugen!
@@ -569,7 +600,10 @@ BOOL BlueBox(BILD* pQuelle, BILD* pZiel)
 			P = PunktHolenInt(pQuelle, x, y);
 
 			if ((P.B > P.R + 10) && (P.B > P.G + 10))
-				P = Schwarz;
+			{
+				// Statt: P = Schwarz;
+				P.R = 0; P.G = 0; P.B = 0;
+			}
 
 			PunktSetzen(pZiel, x, y, &P);
 		}
@@ -1107,88 +1141,11 @@ BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius)
 	return TRUE;
 }
 
-Punkt Bilinear(BILD* src, double x, double y)
-{
-	int x0 = (int)x;
-	int y0 = (int)y;
-
-	// Sicherstellen, dass wir nicht über den Rand hinauslesen
-	x0 = max(0, min(x0, src->Breite - 2));
-	y0 = max(0, min(y0, src->Hoehe - 2));
-
-	int x1 = x0 + 1;
-	int y1 = y0 + 1;
-
-	double dx = x - x0;
-	double dy = y - y0;
-
-	Punkt p00 = PunktHolenInt(src, x0, y0);
-	Punkt p10 = PunktHolenInt(src, x1, y0);
-	Punkt p01 = PunktHolenInt(src, x0, y1);
-	Punkt p11 = PunktHolenInt(src, x1, y1);
-
-	Punkt P;
-
-	P.R = (1 - dx) * (1 - dy) * p00.R + dx * (1 - dy) * p10.R + (1 - dx) * dy * p01.R + dx * dy * p11.R;
-	P.G = (1 - dx) * (1 - dy) * p00.G + dx * (1 - dy) * p10.G + (1 - dx) * dy * p01.G + dx * dy * p11.G;
-	P.B = (1 - dx) * (1 - dy) * p00.B + dx * (1 - dy) * p10.B + (1 - dx) * dy * p01.B + dx * dy * p11.B;
-
-	return P;
-}
-
-BOOL ZoomBicubic(HWND hwnd, BILD* src, BILD* dst, int cx, int cy)
-{
-	double zoom = 2.0;
-
-	int w = dst->Breite;
-	int h = dst->Hoehe;
-
-	for (int y = 0; y < h; y++)
-	{
-		for (int x = 0; x < w; x++)
-		{
-			// Rücktransformation (Ziel -> Quelle)
-			double srcX = cx + (x - w / 2.0) / zoom;
-			double srcY = cy + (y - h / 2.0) / zoom;
-
-			Punkt p;
-
-			// Randbehandlung
-			if (srcX < 1 || srcY < 1 || srcX >= src->Breite - 2 || srcY >= src->Hoehe - 2)
-			{
-				p = PunktHolenInt(src, (int)srcX, (int)srcY);
-			}
-			else
-			{
-				p = Bicubic(src, srcX, srcY);
-			}
-
-			PunktSetzen(dst, x, y, &p);
-		}
-	}
-
-	InvalidateRect(hwnd, NULL, FALSE);
-	return TRUE;
-}
-
-double cubicWeight(double t)
-{
-	t = fabs(t);
-
-	const double a = -0.5; // Catmull-Rom
-
-	if (t <= 1.0)
-		return (a + 2) * t * t * t - (a + 3) * t * t + 1;
-	else if (t < 2.0)
-		return a * t * t * t - 5 * a * t * t + 8 * a * t - 4 * a;
-	else
-		return 0.0;
-}
-
 Punkt Bicubic(BILD* src, double x, double y)
 {
-	int ix = (int)x;
-	int iy = (int)y;
+	// ix, iy ist die obere linke Ecke der zentralen 4 Pixel
+	int ix = (int)floor(x);
+	int iy = (int)floor(y);
 
 	double dx = x - ix;
 	double dy = y - iy;
@@ -1196,21 +1153,21 @@ Punkt Bicubic(BILD* src, double x, double y)
 	Punkt result;
 	result.R = result.G = result.B = 0.0;
 
-	// Sicherheitscheck (Randvermeidung)
+	// Sicherheitscheck: Wir brauchen 2 Pixel in jede Richtung (n-1 bis n+2)
 	if (ix < 1 || iy < 1 || ix >= src->Breite - 2 || iy >= src->Hoehe - 2)
 	{
-		return PunktHolenInt(src, ix, iy);
+		return PunktHolenInt(src, (int)(x + 0.5), (int)(y + 0.5));
 	}
 
-	// 4x4 Nachbarschaft
+	// 4x4 Nachbarschaft (n und m laufen von -1 bis 2)
 	for (int m = -1; m <= 2; m++)
 	{
+		double wy = cubicWeight(m - dy);
 		for (int n = -1; n <= 2; n++)
 		{
 			Punkt p = PunktHolenInt(src, ix + n, iy + m);
-
 			double wx = cubicWeight(n - dx);
-			double wy = cubicWeight(m - dy);
+
 			double w = wx * wy;
 
 			result.R += p.R * w;
@@ -1219,12 +1176,103 @@ Punkt Bicubic(BILD* src, double x, double y)
 		}
 	}
 
-	// Clamp (wichtig!)
-	result.R = max(0.0, min(255.0, result.R));
-	result.G = max(0.0, min(255.0, result.G));
-	result.B = max(0.0, min(255.0, result.B));
+	// Clamp: Verhindert "Overshooting" (Werte < 0 oder > 255)
+	result.R = (result.R < 0) ? 0 : (result.R > 255 ? 255 : result.R);
+	result.G = (result.G < 0) ? 0 : (result.G > 255 ? 255 : result.G);
+	result.B = (result.B < 0) ? 0 : (result.B > 255 ? 255 : result.B);
 
 	return result;
 }
 
+double cubicWeight(double x) {
+	x = fabs(x);
+	double a = -0.5; // Standard-Koeffizient
+	if (x <= 1.0) {
+		return (a + 2.0) * pow(x, 3) - (a + 3.0) * pow(x, 2) + 1.0;
+	}
+	else if (x < 2.0) {
+		return a * pow(x, 3) - 5.0 * a * pow(x, 2) + 8.0 * a * x - 4.0 * a;
+	}
+	return 0.0;
+}
 
+// Hilfsfunktion: Wandelt einen RGB-Punkt in HSV um
+// Ergebnis wird zur Visualisierung wieder auf 0-255 skaliert
+void RGBtoHSV(Punkt rgb, double& h, double& s, double& v) {
+	double r = rgb.R / 255.0;
+	double g = rgb.G / 255.0;
+	double b = rgb.B / 255.0;
+	double maxVal = max(r, max(g, b));
+	double minVal = min(r, min(g, b));
+	double delta = maxVal - minVal;
+	v = maxVal;
+	s = (maxVal > 0) ? (delta / maxVal) : 0;
+	if (delta == 0) h = 0;
+	else {
+		if (maxVal == r) h = 60.0 * fmod(((g - b) / delta), 6.0);
+		else if (maxVal == g) h = 60.0 * (((b - r) / delta) + 2.0);
+		else h = 60.0 * (((r - g) / delta) + 4.0);
+	}
+	if (h < 0) h += 360.0;
+}
+
+BOOL ErzeugeHSVMatrix(HWND hwnd, BILD* pQuelle, BILD* pZiel) {
+	BildInit(pZiel, pQuelle->Breite * 2, pQuelle->Hoehe * 2, 24, 0, 1000);
+
+	for (long y = 0; y < pQuelle->Hoehe; y++) {
+		for (long x = 0; x < pQuelle->Breite; x++) {
+			// WICHTIG: Hier muss der Punkt P erst aus dem Quellbild geholt werden!
+			Punkt P = PunktHolenInt(pQuelle, x, y);
+
+			double h, s, v;
+			RGBtoHSV(P, h, s, v);
+
+			// 1. Quadrant (Oben Links): Originalbild
+			PunktSetzen(pZiel, x, y, &P);
+			// 2. Quadrant (Oben Rechts): Farbwert H (Hue)
+			BYTE h_gray = (BYTE)((h / 360.0) * 255.0);
+			Punkt Ph;
+			Ph.R = Ph.G = Ph.B = h_gray; // Explizite Zuweisung aller Kanäle
+			PunktSetzen(pZiel, x + pQuelle->Breite, y, &Ph);
+
+			// 3. Quadrant (Unten Links): Sättigung S (Saturation)
+			BYTE s_gray = (BYTE)(s * 255.0);
+			Punkt Ps;
+			Ps.R = Ps.G = Ps.B = s_gray; // Explizite Zuweisung aller Kanäle
+			PunktSetzen(pZiel, x, y + pQuelle->Hoehe, &Ps);
+
+			// 4. Quadrant (Unten Rechts): Hellwert V (Value)
+			BYTE v_gray = (BYTE)(v * 255.0);
+			Punkt Pv;
+			Pv.R = Pv.G = Pv.B = v_gray; // Explizite Zuweisung aller Kanäle
+			PunktSetzen(pZiel, x + pQuelle->Breite, y + pQuelle->Hoehe, &Pv);
+		}
+	}
+	return TRUE;
+}
+
+Punkt bilinear(BILD* src, double x, double y)
+{
+	int x1 = (int)floor(x);
+	int y1 = (int)floor(y);
+	int x2 = x1 + 1;
+	int y2 = y1 + 1;
+
+	// Grenzprüfung
+	if (x1 < 0 || y1 < 0 || x2 >= src->Breite || y2 >= src->Hoehe)
+		return PunktHolenInt(src, (int)(x + 0.5), (int)(y + 0.5));
+
+	double dx = x - x1;
+	double dy = y - y1;
+
+	Punkt p11 = PunktHolenInt(src, x1, y1);
+	Punkt p21 = PunktHolenInt(src, x2, y1);
+	Punkt p12 = PunktHolenInt(src, x1, y2);
+	Punkt p22 = PunktHolenInt(src, x2, y2);
+
+	Punkt res;
+	res.R = (1 - dx) * (1 - dy) * p11.R + dx * (1 - dy) * p21.R + (1 - dx) * dy * p12.R + dx * dy * p22.R;
+	res.G = (1 - dx) * (1 - dy) * p11.G + dx * (1 - dy) * p21.G + (1 - dx) * dy * p12.G + dx * dy * p22.G;
+	res.B = (1 - dx) * (1 - dy) * p11.B + dx * (1 - dy) * p21.B + (1 - dx) * dy * p12.B + dx * dy * p22.B;
+	return res;
+}
