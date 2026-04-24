@@ -391,7 +391,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT wMsg,
 					DWORD dauer = GetTickCount() - start;
 
 					char msg[100];
-					sprintf(msg, "Optimierter Filter fertig in %ld ms", dauer);
+					sprintf(msg, "Operation Erfolgreich", dauer);
 					Melde(msg, 0x00FF00, FALSE);
 
 					ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
@@ -437,25 +437,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT wMsg,
 			}
 			break;
 
-		
-
 		case ID_PRAKTIKUM_HSV_MATRIX:
-		{  // <--- Diese Klammer muss da sein
-			// 1. Sicherheitscheck: Gibt es überhaupt ein Bild?
+		{
 			if (Bild_1.Daten == NULL) break;
 
-			// 2. Funktion aufrufen (diese erledigt BildInit und die HSV-Berechnung)
+			// Erzeuge das Ergebnis in Bild_2
 			if (ErzeugeHSVMatrix(hwnd, &Bild_1, &Bild_2))
 			{
-				// 3. Das Ergebnis (die 2x2 Matrix) im Fenster anzeigen
 				ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
 
-				// 4. Die typische Bild-Rotation für die Undo-Funktion
-				Bild_3 = Bild_2;
-				Bild_2 = Bild_1;
-				Bild_1 = Bild_3;
+				// Wenn du ein Undo-System hast, kopiere Bild_1 weg, 
+				// aber überschreibe Bild_1 nicht mit der Matrix, 
+				// sonst kannst du die Funktion kein zweites Mal korrekt aufrufen!
 			}
-		} // <--- Und diese auch vor dem break
+		}
 		break;
 
 		case ID_INTERPOLATION_BICUBIC:
@@ -1075,99 +1070,76 @@ BOOL GaussOptimiert(HWND hwnd, BILD* pQuelle, BILD* pZiel)
 	return TRUE;
 }
 
+// Hilfsfunktion: Wandelt einen RGB-Punkt in das HSV-Modell um
+// Parameter: rgb (Eingabe), h, s, v (Referenzen für die Ausgabe)
+void RGBtoHSV(Punkt rgb, double& h, double& s, double& v) {
+	// 1. Normalisierung: RGB-Werte von [0, 255] auf [0.0, 1.0] bringen
+	double r = rgb.R / 255.0;
+	double g = rgb.G / 255.0;
+	double b = rgb.B / 255.0;
 
-BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius)
-{
-	DWORD start = GetTickCount();
-	long x, y, k, j;
-	Punkt P;
+	// 2. Extremwerte bestimmen
+	double maxVal = max(r, max(g, b)); // Hellster Kanal
+	double minVal = min(r, min(g, b)); // Dunkelster Kanal
+	double delta = maxVal - minVal;    // Differenz (Kontrast)
 
-	int width = pQuelle->Breite;
-	int height = pQuelle->Hoehe;
+	// 3. Berechnung von V (Value) und S (Saturation)
+	v = maxVal; // Der Hellwert entspricht dem Maximum der drei Kanäle
+	s = (maxVal > 0) ? (delta / maxVal) : 0; // Sättigung ist das Verhältnis von Delta zu Max
 
-	// Arbeitsbereich (Ränder bleiben unangetastet)
-	int xa = 0, ya = 0;
-	int xe = width - 1;
-	int ye = height - 1;
-
-	BildInit(pZiel, width, height, 24, 0, 1000);
-	BildCopy(pQuelle, pZiel); // Ränder kopieren
-
-	// --- Gauß-Kernel berechnen ---
-	int kernelSize = 2 * radius + 1;
-	double* kernel = new double[kernelSize * kernelSize];
-	double sigma = radius / 2.0;   // Faustregel
-	double sum = 0.0;
-
-	for (int dy = -radius; dy <= radius; dy++) {
-		for (int dx = -radius; dx <= radius; dx++) {
-			double value = exp(-(dx * dx + dy * dy) / (2.0 * sigma * sigma));
-			kernel[(dy + radius) * kernelSize + (dx + radius)] = value;
-			sum += value;
-		}
+	// 4. Berechnung von H (Hue / Farbton)
+	if (delta < 0.00001) {
+		// Wenn alle Kanäle fast gleich sind (Graustufe), gibt es keinen Farbton
+		h = 0;
 	}
+	else {
+		// Je nachdem welcher Kanal dominiert, wird der Sektor auf dem Farbkreis bestimmt
+		if (maxVal == r)
+			h = (g - b) / delta;       // Zwischen Gelb und Magenta
+		else if (maxVal == g)
+			h = 2.0 + (b - r) / delta; // Zwischen Cyan und Gelb
+		else
+			h = 4.0 + (r - g) / delta; // Zwischen Magenta und Cyan
 
-	// Normalisieren
-	for (int i = 0; i < kernelSize * kernelSize; i++)
-		kernel[i] /= sum;
-
-	// --- Hauptschleife ---
-	for (y = ya + radius; y <= ye - radius; y++) {
-		for (x = xa + radius; x <= xe - radius; x++) {
-			double g = 0.0;
-
-			// Kernel über Nachbarpixel anwenden
-			for (int dy = -radius; dy <= radius; dy++) {
-				for (int dx = -radius; dx <= radius; dx++) {
-					Punkt Ptmp = PunktHolenInt(pQuelle, x + dx, y + dy);
-					double grau = (Ptmp.R + Ptmp.G + Ptmp.B) / 3.0;
-					g += grau * kernel[(dy + radius) * kernelSize + (dx + radius)];
-				}
-			}
-
-			Punkt Pneu;
-			Pneu.R = Pneu.G = Pneu.B = (BYTE)g;
-			PunktSetzen(pZiel, x, y, &Pneu);
-		}
+		h *= 60.0; // Umrechnung in Grad (0-360°)
+		if (h < 0) h += 360.0; // Sicherstellen, dass der Winkel positiv ist
 	}
-
-	delete[] kernel;
-
-	DWORD dauer = GetTickCount() - start;
-	char msg[100];
-	sprintf(msg, "Variabler Gauss fertig in %ld ms", dauer);
-	Melde(msg, 0x00FF00, FALSE);
-
-	return TRUE;
 }
 
+// Hauptfunktion für die bikubische Berechnung an einer Subpixel-Position (x, y)
 Punkt Bicubic(BILD* src, double x, double y)
 {
-	// ix, iy ist die obere linke Ecke der zentralen 4 Pixel
+	// ix, iy ist der ganzzahlige Anteil (Pixelkoordinate oben links)
 	int ix = (int)floor(x);
 	int iy = (int)floor(y);
 
+	// dx, dy ist der Nachkomma-Anteil (Abstand zum nächsten Pixel)
 	double dx = x - ix;
 	double dy = y - iy;
 
 	Punkt result;
 	result.R = result.G = result.B = 0.0;
 
-	// Sicherheitscheck: Wir brauchen 2 Pixel in jede Richtung (n-1 bis n+2)
+	// Sicherheitscheck: Da wir ein 4x4-Feld (von -1 bis +2) prüfen, 
+	// müssen wir mindestens 1 Pixel Abstand zum Rand haben.
 	if (ix < 1 || iy < 1 || ix >= src->Breite - 2 || iy >= src->Hoehe - 2)
 	{
+		// Falls zu nah am Rand: Einfach den nächstgelegenen Pixel zurückgeben
 		return PunktHolenInt(src, (int)(x + 0.5), (int)(y + 0.5));
 	}
 
-	// 4x4 Nachbarschaft (n und m laufen von -1 bis 2)
+	// Über die 4x4 Nachbarschaft iterieren
 	for (int m = -1; m <= 2; m++)
 	{
+		// Gewicht für die vertikale Richtung berechnen
 		double wy = cubicWeight(m - dy);
 		for (int n = -1; n <= 2; n++)
 		{
 			Punkt p = PunktHolenInt(src, ix + n, iy + m);
+			// Gewicht für die horizontale Richtung berechnen
 			double wx = cubicWeight(n - dx);
 
+			// Das Gesamtgewicht ist das Produkt aus horizontalem und vertikalem Gewicht
 			double w = wx * wy;
 
 			result.R += p.R * w;
@@ -1176,7 +1148,8 @@ Punkt Bicubic(BILD* src, double x, double y)
 		}
 	}
 
-	// Clamp: Verhindert "Overshooting" (Werte < 0 oder > 255)
+	// Clamp: Mathematisch können Werte leicht unter 0 oder über 255 entstehen ("Overshooting")
+	// Diese müssen auf den gültigen Bereich von 0-255 begrenzt werden.
 	result.R = (result.R < 0) ? 0 : (result.R > 255 ? 255 : result.R);
 	result.G = (result.G < 0) ? 0 : (result.G > 255 ? 255 : result.G);
 	result.B = (result.B < 0) ? 0 : (result.B > 255 ? 255 : result.B);
@@ -1184,95 +1157,159 @@ Punkt Bicubic(BILD* src, double x, double y)
 	return result;
 }
 
+// Hilfsfunktion: Berechnet das Gewicht basierend auf der kubischen Spline-Funktion
 double cubicWeight(double x) {
-	x = fabs(x);
-	double a = -0.5; // Standard-Koeffizient
+	x = fabs(x); // Nur der Abstand (positiv) zählt
+	double a = -0.5; // Standard-Parameter für "Catmull-Rom" Splines
+
 	if (x <= 1.0) {
+		// Formel für den inneren Bereich (Abstand 0 bis 1)
 		return (a + 2.0) * pow(x, 3) - (a + 3.0) * pow(x, 2) + 1.0;
 	}
 	else if (x < 2.0) {
+		// Formel für den äußeren Bereich (Abstand 1 bis 2)
 		return a * pow(x, 3) - 5.0 * a * pow(x, 2) + 8.0 * a * x - 4.0 * a;
 	}
-	return 0.0;
+	return 0.0; // Pixel, die weiter als 2 Einheiten entfernt sind, haben kein Gewicht mehr
 }
 
-// Hilfsfunktion: Wandelt einen RGB-Punkt in HSV um
-// Ergebnis wird zur Visualisierung wieder auf 0-255 skaliert
-void RGBtoHSV(Punkt rgb, double& h, double& s, double& v) {
-	double r = rgb.R / 255.0;
-	double g = rgb.G / 255.0;
-	double b = rgb.B / 255.0;
-	double maxVal = max(r, max(g, b));
-	double minVal = min(r, min(g, b));
-	double delta = maxVal - minVal;
-	v = maxVal;
-	s = (maxVal > 0) ? (delta / maxVal) : 0;
-	if (delta == 0) h = 0;
-	else {
-		if (maxVal == r) h = 60.0 * fmod(((g - b) / delta), 6.0);
-		else if (maxVal == g) h = 60.0 * (((b - r) / delta) + 2.0);
-		else h = 60.0 * (((r - g) / delta) + 4.0);
-	}
-	if (h < 0) h += 360.0;
-}
-
+// Erzeugt ein Kombinationsbild (2x2 Matrix) aus Original, H, S und V
 BOOL ErzeugeHSVMatrix(HWND hwnd, BILD* pQuelle, BILD* pZiel) {
+	// Zielbild initialisieren: Doppelte Breite und doppelte Höhe des Originals
 	BildInit(pZiel, pQuelle->Breite * 2, pQuelle->Hoehe * 2, 24, 0, 1000);
 
 	for (long y = 0; y < pQuelle->Hoehe; y++) {
 		for (long x = 0; x < pQuelle->Breite; x++) {
-			// WICHTIG: Hier muss der Punkt P erst aus dem Quellbild geholt werden!
+			// Aktuellen Pixel aus der Quelle laden
 			Punkt P = PunktHolenInt(pQuelle, x, y);
 
 			double h, s, v;
-			RGBtoHSV(P, h, s, v);
+			RGBtoHSV(P, h, s, v); // In HSV umrechnen
 
-			// 1. Quadrant (Oben Links): Originalbild
+			// --- Quadrant 1 (Oben Links): Das Originalbild ---
 			PunktSetzen(pZiel, x, y, &P);
-			// 2. Quadrant (Oben Rechts): Farbwert H (Hue)
+
+			// --- Quadrant 2 (Oben Rechts): Farbwert H (Hue) ---
+			// H wird von 0-360° auf 0-255 skaliert für Graustufendarstellung
 			BYTE h_gray = (BYTE)((h / 360.0) * 255.0);
 			Punkt Ph;
-			Ph.R = Ph.G = Ph.B = h_gray; // Explizite Zuweisung aller Kanäle
+			Ph.R = Ph.G = Ph.B = h_gray; 
 			PunktSetzen(pZiel, x + pQuelle->Breite, y, &Ph);
 
-			// 3. Quadrant (Unten Links): Sättigung S (Saturation)
+			// --- Quadrant 3 (Unten Links): Sättigung S (Saturation) ---
+			// S wird von 0.0-1.0 auf 0-255 skaliert
 			BYTE s_gray = (BYTE)(s * 255.0);
 			Punkt Ps;
-			Ps.R = Ps.G = Ps.B = s_gray; // Explizite Zuweisung aller Kanäle
+			Ps.R = Ps.G = Ps.B = s_gray;
 			PunktSetzen(pZiel, x, y + pQuelle->Hoehe, &Ps);
 
-			// 4. Quadrant (Unten Rechts): Hellwert V (Value)
+			// --- Quadrant 4 (Unten Rechts): Hellwert V (Value) ---
+			// V wird von 0.0-1.0 auf 0-255 skaliert
 			BYTE v_gray = (BYTE)(v * 255.0);
 			Punkt Pv;
-			Pv.R = Pv.G = Pv.B = v_gray; // Explizite Zuweisung aller Kanäle
+			Pv.R = Pv.G = Pv.B = v_gray;
 			PunktSetzen(pZiel, x + pQuelle->Breite, y + pQuelle->Hoehe, &Pv);
 		}
 	}
 	return TRUE;
 }
 
+// Berechnet einen interpolierten Farbwert an einer Fließkomma-Position (x, y)
 Punkt bilinear(BILD* src, double x, double y)
 {
+	// 1. Die vier umliegenden ganzzahligen Pixelkoordinaten bestimmen
 	int x1 = (int)floor(x);
 	int y1 = (int)floor(y);
 	int x2 = x1 + 1;
 	int y2 = y1 + 1;
 
-	// Grenzprüfung
+	// 2. Grenzprüfung: Wenn wir außerhalb des Bildes sind, nehmen wir den nächsten Nachbarn
 	if (x1 < 0 || y1 < 0 || x2 >= src->Breite || y2 >= src->Hoehe)
 		return PunktHolenInt(src, (int)(x + 0.5), (int)(y + 0.5));
 
+	// 3. Bestimmung der Abstände (Gewichte) zum nächsten Pixel [0.0, 1.0]
 	double dx = x - x1;
 	double dy = y - y1;
 
-	Punkt p11 = PunktHolenInt(src, x1, y1);
-	Punkt p21 = PunktHolenInt(src, x2, y1);
-	Punkt p12 = PunktHolenInt(src, x1, y2);
-	Punkt p22 = PunktHolenInt(src, x2, y2);
+	// 4. Die Farbwerte der 4 Nachbarpixel holen
+	Punkt p11 = PunktHolenInt(src, x1, y1); // Oben links
+	Punkt p21 = PunktHolenInt(src, x2, y1); // Oben rechts
+	Punkt p12 = PunktHolenInt(src, x1, y2); // Unten links
+	Punkt p22 = PunktHolenInt(src, x2, y2); // Unten rechts
 
+	// 5. Bilineare Mischformel: Gewichtet die 4 Pixel basierend auf dem Abstand dx/dy
 	Punkt res;
 	res.R = (1 - dx) * (1 - dy) * p11.R + dx * (1 - dy) * p21.R + (1 - dx) * dy * p12.R + dx * dy * p22.R;
 	res.G = (1 - dx) * (1 - dy) * p11.G + dx * (1 - dy) * p21.G + (1 - dx) * dy * p12.G + dx * dy * p22.G;
 	res.B = (1 - dx) * (1 - dy) * p11.B + dx * (1 - dy) * p21.B + (1 - dx) * dy * p12.B + dx * dy * p22.B;
+
 	return res;
+}
+
+// Funktion zur Anwendung eines Gauß-Filters mit variablem Radius
+BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius)
+{
+	DWORD start = GetTickCount(); // Zeitmessung für die Performance-Analyse starten
+	long x, y;
+
+	int width = pQuelle->Breite;
+	int height = pQuelle->Hoehe;
+
+	// Zielbild mit den gleichen Maßen wie das Quellbild erstellen (24 Bit Farbtiefe)
+	BildInit(pZiel, width, height, 24, 0, 1000);
+	BildCopy(pQuelle, pZiel); // Das Original kopieren, damit die Ränder (wo der Filter nicht hinkommt) gefüllt sind
+
+	// --- Schritt 1: Gauß-Matrix (Kernel) berechnen ---
+	// Ein Radius von 2 bedeutet eine Matrixgröße von 5x5 (2*2 + 1)
+	int kernelSize = 2 * radius + 1;
+	double* kernel = new double[kernelSize * kernelSize];
+	double sigma = radius / 2.0; // Sigma bestimmt die "Glockenkurve"; Faustregel: halber Radius
+	double sum = 0.0;
+
+	// Die Matrix mit Werten der Gauß-Verteilung füllen
+	for (int dy = -radius; dy <= radius; dy++) {
+		for (int dx = -radius; dx <= radius; dx++) {
+			// Mathematische Formel für die 2D-Gauß-Glocke
+			double value = exp(-(dx * dx + dy * dy) / (2.0 * sigma * sigma));
+			kernel[(dy + radius) * kernelSize + (dx + radius)] = value;
+			sum += value; // Summe aller Werte speichern für die spätere Normalisierung
+		}
+	}
+
+	// Normalisieren: Die Summe aller Matrix-Werte muss 1 ergeben, damit das Bild nicht heller/dunkler wird
+	for (int i = 0; i < kernelSize * kernelSize; i++)
+		kernel[i] /= sum;
+
+	// --- Schritt 2: Filter auf das Bild anwenden ---
+	// Wir lassen den Rand (Größe des Radius) aus, um Zugriffe außerhalb des Speichers zu vermeiden
+	for (y = radius; y <= (height - 1) - radius; y++) {
+		for (x = radius; x <= (width - 1) - radius; x++) {
+			double g = 0.0;
+
+			// Mit der Matrix über den aktuellen Pixel (x,y) und seine Nachbarn fahren
+			for (int dy = -radius; dy <= radius; dy++) {
+				for (int dx = -radius; dx <= radius; dx++) {
+					Punkt Ptmp = PunktHolenInt(pQuelle, x + dx, y + dy);
+					double grau = (Ptmp.R + Ptmp.G + Ptmp.B) / 3.0; // Grauwert berechnen
+					// Grauwert mit dem entsprechenden Gewicht aus der Matrix multiplizieren
+					g += grau * kernel[(dy + radius) * kernelSize + (dx + radius)];
+				}
+			}
+
+			// Das berechnete Ergebnis als neuen (grauen) Pixel setzen
+			Punkt Pneu;
+			Pneu.R = Pneu.G = Pneu.B = (BYTE)g;
+			PunktSetzen(pZiel, x, y, &Pneu);
+		}
+	}
+
+	delete[] kernel; // Dynamisch reservierten Speicher für die Matrix wieder freigeben
+
+	// Zeitmessung beenden und Ergebnis ausgeben
+	DWORD dauer = GetTickCount() - start;
+	char msg[100];
+	sprintf(msg, "Variabler Gauss fertig in %ld ms", dauer);
+	Melde(msg, 0x00FF00, FALSE);
+
+	return TRUE;
 }
