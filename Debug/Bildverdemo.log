@@ -1,7 +1,10 @@
 ﻿cl : befehlszeile warning D9035: Die Option "Gm" ist veraltet und wird in einer der nächsten Versionen entfernt.
   Bildverdemo.cpp
-U:\Bildverdemo_2019\Bildverdemo.cpp(394,44): warning C4474: "sprintf": zu viele Argumente für Formatzeichenfolge übergeben
-U:\Bildverdemo_2019\Bildverdemo.cpp(394,44): message : Platzhalter und deren Parameter erwarten 0 variadic-Argumente, es wurden aber 1 variadic-Argumente bereitgestellt.
-U:\Bildverdemo_2019\Bildverdemo.cpp(944,10): warning C4101: "y": Unreferenzierte lokale Variable
-U:\Bildverdemo_2019\Bildverdemo.cpp(944,7): warning C4101: "x": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(402,44): warning C4474: "sprintf": zu viele Argumente für Formatzeichenfolge übergeben
+U:\Bildverdemo_2019\Bildverdemo.cpp(402,44): message : Platzhalter und deren Parameter erwarten 0 variadic-Argumente, es wurden aber 1 variadic-Argumente bereitgestellt.
+U:\Bildverdemo_2019\Bildverdemo.cpp(886,31): warning C4244: "+=": Konvertierung von "double" in "int", möglicher Datenverlust
+U:\Bildverdemo_2019\Bildverdemo.cpp(887,31): warning C4244: "+=": Konvertierung von "double" in "int", möglicher Datenverlust
+U:\Bildverdemo_2019\Bildverdemo.cpp(888,31): warning C4244: "+=": Konvertierung von "double" in "int", möglicher Datenverlust
+U:\Bildverdemo_2019\Bildverdemo.cpp(909,10): warning C4101: "y": Unreferenzierte lokale Variable
+U:\Bildverdemo_2019\Bildverdemo.cpp(909,7): warning C4101: "x": Unreferenzierte lokale Variable
   Bildverdemo.vcxproj -> U:\Bildverdemo_2019\Debug\Bildverh.exe

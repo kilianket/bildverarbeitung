@@ -47,10 +47,18 @@ BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius)
 // ... (andere Deklarationen)
 double cubicWeight(double x);
 Punkt Bicubic(BILD* src, double x, double y);
-Punkt bilinear(BILD* src, double x, double y); // FIX: Semikolon ergänzt
+Punkt bilinear(BILD* src, double x, double y);
 
 void RGBtoHSV(Punkt rgb, double& h, double& s, double& v);
 BOOL ErzeugeHSVMatrix(HWND hwnd, BILD* pQuelle, BILD* pZiel);
+
+BOOL ZoomInterpolation(
+	BILD* pQuelle,
+	BILD* pZiel,
+	int klickX,
+	int klickY,
+	int zoomFaktor,
+	BOOL bicubic);
 //-------------------------------------------------------------------------
 //                    WinMain   Funktion
 //-------------------------------------------------------------------------
@@ -110,8 +118,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	// --------- Startbild ---------------
 
-	if ((LoadBild(&Bild_1, (strlen(CmdLine) > 0) ? CmdLine : "Start.jpg", FALSE))
-		|| (LoadBild(&Bild_1, (strlen(CmdLine) > 0) ? CmdLine : "..//Start.jpg", FALSE)))
+	if ((LoadBild(&Bild_1, (strlen(CmdLine) > 0) ? CmdLine : "StartJ.jpg", FALSE))
+		|| (LoadBild(&Bild_1, (strlen(CmdLine) > 0) ? CmdLine : "..//StartJ.jpg", FALSE)))
 	{
 		ShowBmp(hwndMain, &Bild_1, 0, 0, TRUE);
 		SetWindowText(hwndMain, "       Bildverarbeitung ");
@@ -119,7 +127,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			Melde("Willkommen in der Bildverarbeitung !", 0x000FF, TRUE);
 	}
 	else
-		Melde("Start.jpg nicht gefunden !", 0x00FFFF, FALSE);
+		Melde("Start.bmp nicht gefunden !", 0x00FFFF, FALSE);
 
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
@@ -454,81 +462,69 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT wMsg,
 		break;
 
 		case ID_INTERPOLATION_BICUBIC:
-			if (Bild_1.Daten != NULL)
+
+			if (Bild_1.Daten == NULL)
+				break;
+
+			if (g_clickX <= 0 || g_clickY <= 0)
 			{
-				// Sicherheitscheck: Wurde überhaupt schon ins Bild geklickt?
-				if (g_clickX <= 0 || g_clickY <= 0) {
-					Melde("Bitte zuerst mit Linksklick einen Punkt im Bild wählen!", 0x0000FF, FALSE);
-					break;
-				}
-
-				int zoomSize = 512;
-				double scale = 1.0 / 64.0; // 64-fache Vergrößerung laut Aufgabe
-
-				if (BildInit(&Bild_2, zoomSize, zoomSize, 24, 0, 1000))
-				{
-					double startX = (double)g_clickX;
-					double startY = (double)g_clickY;
-
-					for (int y = 0; y < Bild_2.Hoehe; y++)
-					{
-						for (int x = 0; x < Bild_2.Breite; x++)
-						{
-							// Quellkoordinaten berechnen
-							double src_x = startX + (double)(x - zoomSize / 2) * scale;
-							double src_y = startY + (double)(y - zoomSize / 2) * scale;
-
-							// Bikubische Interpolation
-							Punkt p = Bicubic(&Bild_1, src_x, src_y);
-							PunktSetzen(&Bild_2, x, y, &p);
-						}
-					}
-
-					// --- WICHTIG: ERGEBNIS ANZEIGEN ---
-					ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
-
-					// Undo-Logik: Aktuelles Bild in Bild_2 sichern, altes in Bild_1 lassen oder rotieren
-					// Damit das Programm stabil bleibt, empfehle ich hier:
-					BildCopy(&Bild_2, &Bild_3); // Backup in Bild_3
-					Melde("Bikubische Vergrößerung (64x) fertig!", 0x00FF00, FALSE);
-				}
+				Melde(
+					"Bitte zuerst einen Punkt anklicken!",
+					0x0000FF,
+					FALSE);
+				break;
 			}
+
+			if (ZoomInterpolation(
+				&Bild_1,
+				&Bild_2,
+				g_clickX,
+				g_clickY,
+				64,
+				TRUE))
+			{
+				ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+
+				char msg[100];
+				sprintf(msg,
+					"Bikubische Interpolation (64x) fertig");
+
+				Melde(msg, 0x00FF00, FALSE);
+			}
+
 			break;
 
 		case ID_INTERPOLATION_BILINEAR:
-			if (Bild_1.Daten != NULL)
+
+			if (Bild_1.Daten == NULL)
+				break;
+
+			if (g_clickX <= 0 || g_clickY <= 0)
 			{
-				int zoomSize = 512;        // Größe des Ausgabefensters
-				double scale = 1.0 / 64.0; // 64-fache Vergrößerung laut Aufgabe 
-
-				if (BildInit(&Bild_2, zoomSize, zoomSize, 24, 0, 1000))
-				{
-					// g_clickX/Y wurden in WM_LBUTTONDOWN gespeichert
-					double startX = (double)g_clickX;
-					double startY = (double)g_clickY;
-
-					for (int y = 0; y < Bild_2.Hoehe; y++)
-					{
-						for (int x = 0; x < Bild_2.Breite; x++)
-						{
-							// Berechne Quellkoordinate (zentriert um Klickpunkt)
-							double src_x = startX + (double)(x - zoomSize / 2) * scale;
-							double src_y = startY + (double)(y - zoomSize / 2) * scale;
-
-							// Bilineare Funktion aufrufen
-							Punkt p = bilinear(&Bild_1, src_x, src_y);
-
-							PunktSetzen(&Bild_2, x, y, &p);
-						}
-					}
-
-					ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
-
-					// Undo-Logik
-					Bild_3 = Bild_2; Bild_2 = Bild_1; Bild_1 = Bild_3;
-					Melde("Bilineare Vergrößerung (64x) fertig", 0x00FF00, FALSE);
-				}
+				Melde(
+					"Bitte zuerst einen Punkt anklicken!",
+					0x0000FF,
+					FALSE);
+				break;
 			}
+
+			if (ZoomInterpolation(
+				&Bild_1,
+				&Bild_2,
+				g_clickX,
+				g_clickY,
+				64,
+				FALSE))
+			{
+				ShowBmp(hwnd, &Bild_2, 0, 0, TRUE);
+
+				char msg[100];
+				sprintf(msg,
+					"Bilineare Interpolation (64x) fertig");
+
+				Melde(msg, 0x00FF00, FALSE);
+			}
+
 			break;
 
 		} // Ende von: Windows-Command (Menü, switch wParam)
@@ -842,101 +838,70 @@ BOOL LineareTransformation(HWND hwnd, BILD* pQuelle, BILD* pZiel, BOOL automatis
 
 BOOL GaussFilter(HWND hwnd, BILD* pQuelle, BILD* pZiel)
 {
-	long x, y, k;
+	int x, y, i, j;
 	Punkt P;
 
-	int width = pQuelle->Breite;
-	int height = pQuelle->Hoehe;
-
-	BildInit(pZiel, width, height, 24, 0, 1000);
-
-	struct RGBBuffer {
-		double R, G, B;
+	// Gauß-Maske 3x3
+	int filter[3][3] =
+	{
+		{1, 2, 1},
+		{2, 4, 2},
+		{1, 2, 1}
 	};
 
-	RGBBuffer* Zeile1 = new RGBBuffer[width]();
-	RGBBuffer* Zeile2 = new RGBBuffer[width]();
-	RGBBuffer* Zeile3 = new RGBBuffer[width]();
+	int S = 16; // Summe der Filtergewichte
 
-	const int w1 = 1, w2 = 2, w3 = 1;
-	const double Nenner = 16.0;
+	int S_R, S_G, S_B;
 
-	auto GrauWert = [](const Punkt& p) -> double {
-		return 0.299 * p.R + 0.587 * p.G + 0.114 * p.B;
-	};
+	// Zielbild initialisieren
+	BildInit(
+		pZiel,
+		pQuelle->Breite,
+		pQuelle->Hoehe,
+		24,
+		0,
+		1000
+	);
 
-	// =========================================================
-	// INITIALISIERUNG (KORRIGIERT: Zeile1 war vorher uninitialisiert!)
-	// =========================================================
-	for (k = 0; k < width; k++)
+	// Bild filtern
+	for (y = 1; y < pQuelle->Hoehe - 1; y++)
 	{
-		P = PunktHolenInt(pQuelle, k, 0);
-		Zeile1[k].R = Zeile1[k].G = Zeile1[k].B = GrauWert(P);
-	}
-
-	for (k = 0; k < width; k++)
-	{
-		P = PunktHolenInt(pQuelle, k, 0);
-		Zeile2[k].R = Zeile2[k].G = Zeile2[k].B = GrauWert(P);
-	}
-
-	for (k = 0; k < width; k++)
-	{
-		P = PunktHolenInt(pQuelle, k, 1);
-		Zeile3[k].R = Zeile3[k].G = Zeile3[k].B = GrauWert(P);
-	}
-
-	// =========================================================
-	// HAUPTSCHLEIFE
-	// =========================================================
-	for (y = 1; y < height - 1; y++)
-	{
-		RGBBuffer* temp = Zeile1;
-		Zeile1 = Zeile2;
-		Zeile2 = Zeile3;
-		Zeile3 = temp;
-
-		for (k = 0; k < width; k++)
+		for (x = 1; x < pQuelle->Breite - 1; x++)
 		{
-			P = PunktHolenInt(pQuelle, k, y + 1);
-			double g = GrauWert(P);
-			Zeile3[k].R = Zeile3[k].G = Zeile3[k].B = g;
-		}
+			S_R = 0;
+			S_G = 0;
+			S_B = 0;
 
-		for (x = 1; x < width - 1; x++)
-		{
-			double v_l =
-				Zeile1[x - 1].R * w1 + Zeile2[x - 1].R * w2 + Zeile3[x - 1].R * w1;
+			// 3x3 Nachbarschaft aufsummieren
+			for (j = 0; j < 3; j++)
+			{
+				for (i = 0; i < 3; i++)
+				{
+					P = PunktHolenInt(
+						pQuelle,
+						x + i - 1,
+						y + j - 1
+					);
 
-			double v_m =
-				Zeile1[x].R * w1 + Zeile2[x].R * w2 + Zeile3[x].R * w1;
+					S_R += P.R * filter[j][i];
+					S_G += P.G * filter[j][i];
+					S_B += P.B * filter[j][i];
+				}
+			}
 
-			double v_r =
-				Zeile1[x + 1].R * w1 + Zeile2[x + 1].R * w2 + Zeile3[x + 1].R * w1;
+			// Normierung
+			P.R = S_R / S;
+			P.G = S_G / S;
+			P.B = S_B / S;
 
-			double result = (v_l * w1 + v_m * w2 + v_r * w1) / Nenner;
-
-			unsigned char Grau = (unsigned char)(result + 0.5);
-
-			Punkt P_neu;
-			P_neu.R = P_neu.G = P_neu.B = Grau;
-
-			PunktSetzen(pZiel, x, y, &P_neu);
+			// Ergebnis ins Zielbild schreiben
+			PunktSetzen(pZiel, x, y, &P);
 		}
 	}
-
-	delete[] Zeile1;
-	delete[] Zeile2;
-	delete[] Zeile3;
-
-	// =========================================================
-	// SICHERN
-	// =========================================================
-	BildInit(&bild5, width, height, 24, 0, 1000);
-	BildCopy(pZiel, &bild5);
 
 	return TRUE;
 }
+
 BOOL GaussOptimiert(HWND hwnd, BILD* pQuelle, BILD* pZiel)
 {
 	DWORD start = GetTickCount();
@@ -1214,37 +1179,6 @@ BOOL ErzeugeHSVMatrix(HWND hwnd, BILD* pQuelle, BILD* pZiel) {
 	return TRUE;
 }
 
-// Berechnet einen interpolierten Farbwert an einer Fließkomma-Position (x, y)
-Punkt bilinear(BILD* src, double x, double y)
-{
-	// 1. Die vier umliegenden ganzzahligen Pixelkoordinaten bestimmen
-	int x1 = (int)floor(x);
-	int y1 = (int)floor(y);
-	int x2 = x1 + 1;
-	int y2 = y1 + 1;
-
-	// 2. Grenzprüfung: Wenn wir außerhalb des Bildes sind, nehmen wir den nächsten Nachbarn
-	if (x1 < 0 || y1 < 0 || x2 >= src->Breite || y2 >= src->Hoehe)
-		return PunktHolenInt(src, (int)(x + 0.5), (int)(y + 0.5));
-
-	// 3. Bestimmung der Abstände (Gewichte) zum nächsten Pixel [0.0, 1.0]
-	double dx = x - x1;
-	double dy = y - y1;
-
-	// 4. Die Farbwerte der 4 Nachbarpixel holen
-	Punkt p11 = PunktHolenInt(src, x1, y1); // Oben links
-	Punkt p21 = PunktHolenInt(src, x2, y1); // Oben rechts
-	Punkt p12 = PunktHolenInt(src, x1, y2); // Unten links
-	Punkt p22 = PunktHolenInt(src, x2, y2); // Unten rechts
-
-	// 5. Bilineare Mischformel: Gewichtet die 4 Pixel basierend auf dem Abstand dx/dy
-	Punkt res;
-	res.R = (1 - dx) * (1 - dy) * p11.R + dx * (1 - dy) * p21.R + (1 - dx) * dy * p12.R + dx * dy * p22.R;
-	res.G = (1 - dx) * (1 - dy) * p11.G + dx * (1 - dy) * p21.G + (1 - dx) * dy * p12.G + dx * dy * p22.G;
-	res.B = (1 - dx) * (1 - dy) * p11.B + dx * (1 - dy) * p21.B + (1 - dx) * dy * p12.B + dx * dy * p22.B;
-
-	return res;
-}
 
 // Funktion zur Anwendung eines Gauß-Filters mit variablem Radius
 BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius)
@@ -1312,4 +1246,89 @@ BOOL GaussOptimiertReichweite(HWND hwnd, BILD* pQuelle, BILD* pZiel, int radius)
 	Melde(msg, 0x00FF00, FALSE);
 
 	return TRUE;
+}
+
+
+BOOL ZoomInterpolation(
+	BILD* pQuelle,
+	BILD* pZiel,
+	int klickX,
+	int klickY,
+	int zoomFaktor,
+	BOOL bicubic)
+{
+	const int zoomSize = 512;
+
+	if (!BildInit(pZiel, zoomSize, zoomSize, 24, 0, 1000))
+		return FALSE;
+
+	double scale = 1.0 / (double)zoomFaktor;
+
+	for (int y = 0; y < zoomSize; y++)
+	{
+		double src_y =
+			klickY +
+			(double)(y - zoomSize / 2) * scale;
+
+		for (int x = 0; x < zoomSize; x++)
+		{
+			double src_x =
+				klickX +
+				(double)(x - zoomSize / 2) * scale;
+
+			Punkt p;
+
+			if (bicubic)
+				p = Bicubic(pQuelle, src_x, src_y);
+			else
+				p = bilinear(pQuelle, src_x, src_y);
+
+			PunktSetzen(pZiel, x, y, &p);
+		}
+	}
+
+	return TRUE;
+}
+
+// Berechnet einen interpolierten Farbwert an einer Fließkomma-Position (x, y)
+Punkt bilinear(BILD* src, double x, double y)
+{
+	// 1. Die vier umliegenden ganzzahligen Pixelkoordinaten bestimmen
+	int x1 = (int)floor(x);
+	int y1 = (int)floor(y);
+	int x2 = x1 + 1;
+	int y2 = y1 + 1;
+
+	// 2. Grenzprüfung: Wenn wir außerhalb des Bildes sind, nehmen wir den nächsten Nachbarn
+	if (x1 < 0 || y1 < 0 || x2 >= src->Breite || y2 >= src->Hoehe)
+	{
+		return PunktHolenInt(src, (int)(x + 0.5), (int)(y + 0.5));
+	}
+
+	// 3. Bestimmung der Abstände (Gewichte) zum nächsten Pixel [0.0, 1.0]
+	double dx = x - x1;
+	double dy = y - y1;
+
+	// 4. Gewichte vorab berechnen (spart massig Multiplikationen bei R, G und B)
+	double inv_dx = 1.0 - dx;
+	double inv_dy = 1.0 - dy;
+
+	double w11 = inv_dx * inv_dy; // Gewicht oben links
+	double w21 = dx * inv_dy; // Gewicht oben rechts
+	double w12 = inv_dx * dy;     // Gewicht unten links
+	double w22 = dx * dy;     // Gewicht unten rechts
+
+	// 5. Die Farbwerte der 4 Nachbarpixel holen
+	Punkt p11 = PunktHolenInt(src, x1, y1);
+	Punkt p21 = PunktHolenInt(src, x2, y1);
+	Punkt p12 = PunktHolenInt(src, x1, y2);
+	Punkt p22 = PunktHolenInt(src, x2, y2);
+
+	// 6. Bilineare Mischformel anwenden
+	Punkt res;
+	res.R = w11 * p11.R + w21 * p21.R + w12 * p12.R + w22 * p22.R;
+	res.G = w11 * p11.G + w21 * p21.G + w12 * p12.G + w22 * p22.G;
+	res.B = w11 * p11.B + w21 * p21.B + w12 * p12.B + w22 * p22.B;
+
+	return res;
 }
